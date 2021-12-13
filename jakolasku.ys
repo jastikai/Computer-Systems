@@ -1,0 +1,12 @@
+main:
+    irmovq $0,%rax
+    irmovq $1,%rcx
+loop:
+    subq %rsi,%rdi
+    jg above
+    jl below
+above:
+    addq %rcx,%rax
+    jmp loop
+below:
+    halt

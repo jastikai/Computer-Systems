@@ -1,0 +1,17 @@
+main:
+    irmovq $0,%rax #ctr
+    irmovq $1,%rcx #step
+    irmovq $0,%rdi #compare
+    irmovq $8, %r8 #switch byte
+    irmovq $0x400,%rsi #string start
+loop:
+    mrmovq (%rsi),%r9
+    subq %rdi,%r9
+    je iszero
+    jmp nonzero
+nonzero:
+    addq %rcx,%rax #update counter
+    addq %r8,%rsi #move pointer
+    jmp loop #go back to loop
+iszero:
+    halt

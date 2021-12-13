@@ -1,0 +1,18 @@
+popq %rsi
+popq %r11
+nop
+nop
+nop
+subq %r11,%rsi
+call aliohj   
+halt          
+aliohj:
+    nop
+    mrmovq (%rsi),%rax
+    nop
+    nop
+    subq %rax,%r11
+    nop
+    nop
+    nop   
+    ret
