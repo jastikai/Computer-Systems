@@ -1,0 +1,243 @@
+#TKJ Harjoitystyö 2021 syksy, Fibonacci-värkki
+
+main:
+    #Introduce registers for main variables used in the main program
+    irmovq stack,%rbp # beginning address of stack
+    irmovq stack,%rsp # address of the top value in stack
+    #irmovq array,%r11 #reinstate the starting point of test array
+readnumber:
+    mrmovq (%r11),%rcx #move the test value from memory to our testing register
+    pushq %rcx #store the number being tested into stack
+    irmovq $0,%r10 #0 for comparison
+    xorq %rcx,%r10 #is rcx not 0
+    je iszero #if rcx XOR 0 == 0, the testing is finished, time to stop
+    rrmovq %rcx,%r12 #move tested number into r12 for the test
+    pushq %r11 #store array pointer
+    call isFibonacci #test if the value is a Fibonacci number
+    popq %r11 #return array pointer
+    rrmovq %rbx,%rdi #move isFibonacci result to rdi for testin
+    irmovq $1,%r9 #test boolean for if the test is a pass
+    xorq %r9,%rdi #test, XOR ==1 if isFibonacci = 0
+    popq %rax #get original number into rax
+    jne stopreading #if XOR != 0
+    irmovq $8,%r8 #step for moving array pointer
+    addq %r8,%r11 #move pointer if XOR == 1
+    jmp readnumber
+stopreading:
+    #popq %rcx
+    #rrmovq %rcx,%rax #move the first non-Fibonacci number to rax
+    halt
+iszero:
+    #popq %rcx
+    #rrmovq %rcx,%rax #move 0 to rax
+    halt
+
+.pos 0x100
+sqrt:
+    #calculates the square root of value in r12, returns it in rcx
+    irmovq $0x1000000,%r8 #bit = 1 << 28
+    irmovq $0,%rcx #res
+    irmovq lookuptable, %rdx #pointer to lookup table
+    irmovq $16, %r14 #LUT pointer mover
+firstloop:
+    rrmovq %r12,%r9 #store num in r9
+    subq %r8,%r9 #compare bit to num in r9
+    jge secondloop #continue to the second loop if bit < num
+    call shiftbit
+    jmp firstloop
+secondloop:
+    irmovq $0,%r10 #store comparator to 0 in r10
+    subq %r10,%r8 #compare bit to 0
+    je endsqrt # while bit != 0
+    rrmovq %rcx,%r11 #store res in r11 for addition
+    addq %r8,%r11 #res + bit
+    rrmovq %r11,%r13 #store sum in r13 for comparison
+    subq %r12,%r13 #check if num >= res + bit
+    jle partone #first couple of sums
+    jmp parttwo #second singular shift
+partone:
+    subq %r11,%r12 #num -= res + bit
+    pushq %rdx #save LUT pointer
+    call division #res >> 1
+    popq %rdx #return LUT pointer to rdx
+    addq %r8,%rcx #res = (res >> 1) + bit
+    call shiftbit #do this every loop
+    jmp secondloop
+parttwo:
+    pushq %rdx #save LUT pointer
+    call division
+    popq %rdx #return LUT pointer to rdx
+    call shiftbit #call this every loop
+    jmp secondloop
+endsqrt:
+    ret
+
+
+.pos 0x200
+division:
+    # rsi (res) >>= 1
+    irmovq $0,%r13 #for comparing counter cap and rdi
+    irmovq $0,%rdx #comparer but one bit to the right, for summing later
+    rrmovq %rcx,%rsi # store res in rsi
+    irmovq $1,%rdi #1 for removing LSB
+    rrmovq %rsi,%rax #for AND
+    andq %rdi,%rax # res & 1
+    je shiftloop #if LSB is 0, move on
+    irmovq $1,%rdi #make it 1 for removing LSB, convenient comparer for looping as it's 0b0001
+    subq %rdi,%rsi #remove LSB from res since it's getting cut anyway
+shiftloop:
+    #irmovq $0x1000000,%r14 #cap to which bits we want to study (since all numbers are below 1000 so all sqrt inputs are <= 5*1000^2 + 4)
+    #xorq %rdi,%r14 # comparer XOR cap, 0 if the same
+    #je stopshift #if XOR is 0 then cap has been reached, move to end
+    rrmovq %rcx,%r14 #store original res in r14 for testing if we've reached the MSB of res
+    subq %rdi,%r14 #see if comparer bit is greater than original res
+    jle stopshift #if XOR is 0 then cap has been reached, move to end
+    rrmovq %rdi,%rdx #makes the "bit to the right" the bit we're using right now
+    addq %rdi,%rdi #comparer <<= 1
+    rrmovq %rsi,%rax #store res in rax
+    andq %rdi,%rax #compare bits
+    je shiftloop #if both 0, move on
+    subq %rdi,%rsi #makes the bit in question 0
+    addq %rdx,%rsi #adds 1 to the bit to the right, essentially shifting it
+    jmp shiftloop
+stopshift:
+    rrmovq %rsi,%rcx #move res back to rcx
+    ret
+
+.pos 0x300
+multiply:
+    #r11 and r12 are the numbers to be multiplied, result is in rax
+    irmovq $0,%rax #result
+    irmovq $1,%rcx #studied bit, add the first bit in the end if it is 1
+    irmovq $0,%rdx #is the studied bit 1 or 0, for AND operation result
+    irmovq $1,%rbx #step for counters
+    irmovq $0,%r8 #counter for which bit we're on (n-1)
+    irmovq $0,%r13 #for testing if we've already gone through all bits in r11
+    rrmovq %r11,%rdx #store r11 in rdx for test
+    andq %rcx,%rdx #is the first bit 1
+    je loop #if first bit is 0, move on
+    addq %r12,%rax #if first bit is 1, add r12 to answer already
+loop:
+    rrmovq %r12,%r14 #store r12 temporarily in r14 to preserve its initial value
+    irmovq $0,%r9 #counter for shifts
+    addq %rcx,%rcx #move to the next bit
+    addq %rbx,%r8 #move the counter of bits by one
+    rrmovq %r11,%r13 #store r11 in r13 to test if we've gone over
+    subq %rcx,%r13 #r13-rcx
+    jl endmulti #if rcx > r13, move to end
+    rrmovq %r11,%rdx #move first multiplicant to rdx for AND
+    andq %rcx,%rdx #test if bit is 1
+    je loop #if the bit is 0, skip to the next one
+    jmp shifting
+shifting:
+    rrmovq %r8,%r10 #this is our cap for shifts (n-1)
+    xorq %r9,%r10 #is the counter different than cap
+    je sum #if counter == cap, go back to loop
+    addq %r14,%r14 #r14 <<= 1
+    addq %rbx,%r9 #counter++
+    jmp shifting
+sum:
+    addq %r14,%rax #add the shifted values to answer
+    jmp loop
+endmulti:
+    ret
+
+.pos 0x400
+shiftbit:
+    #this function shifts bit by 2, bit >>= 2
+    mrmovq (%rdx),%r8 #move the shifted value from the table to bit
+    irmovq $16,%r14
+    addq %r14,%rdx #increase LUT pointer by 16
+    ret
+
+#lookup table for bit shifting bit (=1 << 25) >>= 2
+.pos 0x500
+.align 8
+lookuptable:
+    .quad 0x1000000
+    .quad 0x0800000
+    .quad 0x0400000
+    .quad 0x0200000
+    .quad 0x0100000
+    .quad 0x0080000
+    .quad 0x0040000
+    .quad 0x0020000
+    .quad 0x0010000
+    .quad 0x0008000
+    .quad 0x0004000
+    .quad 0x0002000
+    .quad 0x0001000
+    .quad 0x0000800
+    .quad 0x0000400
+    .quad 0x0000200
+    .quad 0x0000100
+    .quad 0x0000080
+    .quad 0x0000040
+    .quad 0x0000020
+    .quad 0x0000010
+    .quad 0x0000008
+    .quad 0x0000004
+    .quad 0x0000002
+    .quad 0x0000001
+    .quad 0x0000000
+
+.pos 0x600
+isPerfectSquare:
+    #calculates whether value in r12 is a perfect square, returns boolean result in rbx
+    pushq %r12 #save r12 to stack
+    call sqrt
+    rrmovq %rcx,%rsi #sqrt of r12
+    rrmovq %rsi,%r11 #move sqrt(r12) to r11 for multiplication
+    rrmovq %rsi,%r12 #same as above but r12
+    call multiply #sqrt(r12)^2 -> rax
+    popq %r12
+    subq %rax,%r12 #is sqrt(x)^2 == x, 0 if true
+    je perfecttrue
+    jmp perfectfalse
+perfecttrue:
+    irmovq $1,%rbx #if true, value is 1
+    ret
+perfectfalse:
+    irmovq $0,%rbx #if false, value is 0
+    ret
+
+.pos 0x900
+isFibonacci:
+    #test if value in r12 is a Fibonacci number, returns boolean result in rbx
+    irmovq $5,%r11
+    pushq %r12
+    call multiply #5*x -> rax
+    popq %r12
+    rrmovq %rax,%r11
+    call multiply #5*x*x -> rax
+    rrmovq %rax,%r12 #move the result to r12
+    irmovq $4,%r9 #for + and -
+    subq %r9,%r12 #5*x*x - 4 -> r12
+    pushq %r12
+    call isPerfectSquare
+    popq %r12
+    irmovq $1,%r8 #test boolean
+    xorq %r8,%rbx #test if result is 1
+    je fibonaccitrue #if XOR == 0, result is true
+    irmovq $4,%r9 #for + and -
+    addq %r9,%r12 #back to 5*x*x
+    addq %r9,%r12 #5*x*x + 4
+    call isPerfectSquare
+    irmovq $1,%r8 #test boolean
+    xorq %r8,%rbx #test if result is 1
+    je fibonaccitrue #if XOR == 0, result is true
+    jmp fibonaccifalse
+fibonaccitrue:
+    irmovq $1,%rbx #return true
+    ret
+fibonaccifalse:
+    irmovq $0,%rbx #return false
+    ret
+
+.pos 0xB00
+stack:
+
+.pos 0x700
+array:
+
+
