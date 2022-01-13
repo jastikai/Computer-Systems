@@ -31,8 +31,7 @@ iszero:
     #popq %rcx
     #rrmovq %rcx,%rax #move 0 to rax
     halt
-
-.pos 0x100
+    
 sqrt:
     #calculates the square root of value in r12, returns it in rcx
     irmovq $0x1000000,%r8 #bit = 1 << 28
@@ -72,8 +71,6 @@ parttwo:
 endsqrt:
     ret
 
-
-.pos 0x200
 division:
     # rsi (res) >>= 1
     irmovq $0,%r13 #for comparing counter cap and rdi
@@ -104,7 +101,6 @@ stopshift:
     rrmovq %rsi,%rcx #move res back to rcx
     ret
 
-.pos 0x300
 multiply:
     #r11 and r12 are the numbers to be multiplied, result is in rax
     irmovq $0,%rax #result
@@ -142,12 +138,63 @@ sum:
 endmulti:
     ret
 
-.pos 0x400
 shiftbit:
     #this function shifts bit by 2, bit >>= 2
     mrmovq (%rdx),%r8 #move the shifted value from the table to bit
     irmovq $16,%r14
     addq %r14,%rdx #increase LUT pointer by 16
+    ret
+    
+
+isPerfectSquare:
+    #calculates whether value in r12 is a perfect square, returns boolean result in rbx
+    pushq %r12 #save r12 to stack
+    call sqrt
+    rrmovq %rcx,%rsi #sqrt of r12
+    rrmovq %rsi,%r11 #move sqrt(r12) to r11 for multiplication
+    rrmovq %rsi,%r12 #same as above but r12
+    call multiply #sqrt(r12)^2 -> rax
+    popq %r12
+    subq %rax,%r12 #is sqrt(x)^2 == x, 0 if true
+    je perfecttrue
+    jmp perfectfalse
+perfecttrue:
+    irmovq $1,%rbx #if true, value is 1
+    ret
+perfectfalse:
+    irmovq $0,%rbx #if false, value is 0
+    ret
+
+isFibonacci:
+    #test if value in r12 is a Fibonacci number, returns boolean result in rbx
+    irmovq $5,%r11
+    pushq %r12
+    call multiply #5*x -> rax
+    popq %r12
+    rrmovq %rax,%r11
+    call multiply #5*x*x -> rax
+    rrmovq %rax,%r12 #move the result to r12
+    irmovq $4,%r9 #for + and -
+    subq %r9,%r12 #5*x*x - 4 -> r12
+    pushq %r12
+    call isPerfectSquare
+    popq %r12
+    irmovq $1,%r8 #test boolean
+    xorq %r8,%rbx #test if result is 1
+    je fibonaccitrue #if XOR == 0, result is true
+    irmovq $4,%r9 #for + and -
+    addq %r9,%r12 #back to 5*x*x
+    addq %r9,%r12 #5*x*x + 4
+    call isPerfectSquare
+    irmovq $1,%r8 #test boolean
+    xorq %r8,%rbx #test if result is 1
+    je fibonaccitrue #if XOR == 0, result is true
+    jmp fibonaccifalse
+fibonaccitrue:
+    irmovq $1,%rbx #return true
+    ret
+fibonaccifalse:
+    irmovq $0,%rbx #return false
     ret
 
 #lookup table for bit shifting bit (=1 << 25) >>= 2
@@ -181,58 +228,6 @@ lookuptable:
     .quad 0x0000001
     .quad 0x0000000
 
-.pos 0x600
-isPerfectSquare:
-    #calculates whether value in r12 is a perfect square, returns boolean result in rbx
-    pushq %r12 #save r12 to stack
-    call sqrt
-    rrmovq %rcx,%rsi #sqrt of r12
-    rrmovq %rsi,%r11 #move sqrt(r12) to r11 for multiplication
-    rrmovq %rsi,%r12 #same as above but r12
-    call multiply #sqrt(r12)^2 -> rax
-    popq %r12
-    subq %rax,%r12 #is sqrt(x)^2 == x, 0 if true
-    je perfecttrue
-    jmp perfectfalse
-perfecttrue:
-    irmovq $1,%rbx #if true, value is 1
-    ret
-perfectfalse:
-    irmovq $0,%rbx #if false, value is 0
-    ret
-
-.pos 0x900
-isFibonacci:
-    #test if value in r12 is a Fibonacci number, returns boolean result in rbx
-    irmovq $5,%r11
-    pushq %r12
-    call multiply #5*x -> rax
-    popq %r12
-    rrmovq %rax,%r11
-    call multiply #5*x*x -> rax
-    rrmovq %rax,%r12 #move the result to r12
-    irmovq $4,%r9 #for + and -
-    subq %r9,%r12 #5*x*x - 4 -> r12
-    pushq %r12
-    call isPerfectSquare
-    popq %r12
-    irmovq $1,%r8 #test boolean
-    xorq %r8,%rbx #test if result is 1
-    je fibonaccitrue #if XOR == 0, result is true
-    irmovq $4,%r9 #for + and -
-    addq %r9,%r12 #back to 5*x*x
-    addq %r9,%r12 #5*x*x + 4
-    call isPerfectSquare
-    irmovq $1,%r8 #test boolean
-    xorq %r8,%rbx #test if result is 1
-    je fibonaccitrue #if XOR == 0, result is true
-    jmp fibonaccifalse
-fibonaccitrue:
-    irmovq $1,%rbx #return true
-    ret
-fibonaccifalse:
-    irmovq $0,%rbx #return false
-    ret
 
 .pos 0xB00
 stack:
